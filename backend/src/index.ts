@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText } from "AI";
 import { mistral_model } from "../models/mistral_model";
 
 export const generateTextResponse = async (
