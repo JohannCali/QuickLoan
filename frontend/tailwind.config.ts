@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -54,13 +53,13 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				},
 				aave: {
-					primary: '#B6509E', // Aave's purple/pink
-					secondary: '#2EBAC6', // Aave's teal
-					accent: '#4e6af3', // Aave's blue accent
-					dark: '#1B2030', // Dark background
-					darker: '#131A2B', // Darker panels
-					"blue-gray": "#292E41", // Blue-gray for cards
-					"light-blue": "#383D51" // Light blue for borders
+					primary: '#25A1EF', // XRPL blue
+					secondary: '#3888E2', // XRPL secondary blue
+					accent: '#4361FF', // Accent color
+					dark: '#0A1021', // Dark background (XRPL-inspired)
+					darker: '#060B18', // Darker panels
+					"blue-gray": "#1A223A", // Blue-gray for cards
+					"light-blue": "#273151" // Light blue for borders
 				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
@@ -72,6 +71,9 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				}
+			},
+			fontFamily: {
+				inter: ['Inter', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -98,7 +100,7 @@ export default {
 				'pulse-slow': 'pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite'
 			},
 			boxShadow: {
-				'aave': '0 0 20px rgba(182, 80, 158, 0.15)'
+				'aave': '0 0 20px rgba(37, 161, 239, 0.15)'
 			}
 		}
 	},

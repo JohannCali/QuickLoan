@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "fs-extra": "^11.3.0",
-    "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^5.2.133",
-    "zod": "^3.24.4"
-  }
-}
