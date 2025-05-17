@@ -1,4 +1,4 @@
-# 💸 AI-LendChain – Prêt et Emprunt sur la Blockchain avec Analyse IA
+# 💸 QuickLoan – Prêt et Emprunt sur la Blockchain avec Analyse IA
 
 ## 🔗 Contexte
 
