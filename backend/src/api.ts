@@ -11,7 +11,7 @@ import {
 } from "../DocumentAnalyzer";
 
 const app = express();
-const PORT = 3001;
+const PORT = 3002;
 
 // Middleware
 app.use(cors());

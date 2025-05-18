@@ -9,8 +9,8 @@ import app from './src/api';
 // Charger les variables d'environnement
 dotenv.config();
 
-// Définir le port à utiliser (celui dans .env ou 3001 par défaut)
-const PORT = process.env.PORT || 3001;
+// Définir le port à utiliser (celui dans .env ou 3002 par défaut)
+const PORT = process.env.PORT || 3002;
 
 // Lancement du serveur
 app.listen(PORT, () => {

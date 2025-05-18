@@ -152,10 +152,7 @@ const DIDDocuments = () => {
       formData.append('payslip', payslipFile);
       formData.append('taxReturn', taxReturnFile);
       
-      const response = await fetch('http://localhost:3001/api/analyze-documents', {
-        method: 'POST',
-        body: formData,
-      });
+                  const response = await fetch('http://localhost:3002/api/analyze-documents', {        method: 'POST',        body: formData,      });
       
       if (!response.ok) {
         throw new Error('Erreur lors de l\'analyse des documents');
