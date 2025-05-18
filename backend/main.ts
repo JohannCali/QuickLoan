@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`
 ===============================================
-  💰 QuickLoan API en écoute sur le port ${PORT} 💰
+   QuickLoan API en écoute sur le port ${PORT} 
 ===============================================
 
 Endpoints disponibles:
