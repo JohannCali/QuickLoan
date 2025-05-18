@@ -235,6 +235,7 @@ export async function analyzeFinancialDocuments(
       analyzeTaxReturn(taxReturnPath)
     ]);
     
+    
     // Combiner les résultats
     const combinedData: CombinedData = {
       bulletin: payslipData,
