@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import SidebarLayout from "@/components/layout/SidebarLayout";
 import Header from "@/components/layout/Header";
@@ -17,15 +16,54 @@ import {
   Globe,
   ArrowRight, 
   XCircle, 
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CustomProgress } from "@/components/ui/custom-progress";
 
+interface AnalysisResult {
+  documentData?: {
+    bulletin: {
+      employeur: string;
+      typeContrat: string;
+      anciennete: string;
+      salaireBrut: number;
+      salaireNet: number;
+      chargesSalariales: number;
+      primes: Array<{ nom: string; montant: number }>;
+    };
+    impots: {
+      adresseFiscale: string;
+      situationFamiliale: {
+        statut: string;
+        nombrePersonnesCharge: number;
+      };
+      revenuAnnuel: number;
+      autresRevenus: Array<{ source: string; montant: number }>;
+      impotRevenu: number;
+      revenuFiscalReference: number;
+    };
+  };
+  loanAnalysis?: {
+    capaciteEmprunt: number;
+    mensualiteMax: number;
+    tauxEndettement: number;
+    dureeRecommandee: string;
+    facteursFavorables: string[];
+    facteursDefavorables: string[];
+    recommendation: string;
+  };
+}
+
 const DIDDocuments = () => {
   const { toast } = useToast();
   const [dragActive, setDragActive] = useState(false);
+  const [payslipFile, setPayslipFile] = useState<File | null>(null);
+  const [taxReturnFile, setTaxReturnFile] = useState<File | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -44,19 +82,103 @@ const DIDDocuments = () => {
     e.stopPropagation();
     setDragActive(false);
     
-    toast({
-      title: "Demo Mode",
-      description: "In a real application, this would process your uploaded document.",
-      variant: "default",
-    });
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const files = Array.from(e.dataTransfer.files);
+      
+      // Essayer de déterminer le type de fichier en fonction du nom
+      files.forEach(file => {
+        if (file.name.toLowerCase().includes('salaire') || file.name.toLowerCase().includes('paie')) {
+          setPayslipFile(file);
+          toast({
+            title: "Fichier accepté",
+            description: `Fiche de paie: ${file.name}`,
+            variant: "default",
+          });
+        } else if (file.name.toLowerCase().includes('impot') || file.name.toLowerCase().includes('tax')) {
+          setTaxReturnFile(file);
+          toast({
+            title: "Fichier accepté",
+            description: `Déclaration d'impôts: ${file.name}`,
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Type de fichier incertain",
+            description: "Veuillez indiquer s'il s'agit d'une fiche de paie ou d'une déclaration d'impôts",
+            variant: "destructive",
+          });
+        }
+      });
+    }
   };
   
-  const handleFileInput = () => {
-    toast({
-      title: "Demo Mode",
-      description: "In a real application, this would open a file picker.",
-      variant: "default",
-    });
+  const handlePayslipInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setPayslipFile(e.target.files[0]);
+      toast({
+        title: "Fichier téléchargé",
+        description: `Fiche de paie: ${e.target.files[0].name}`,
+        variant: "default",
+      });
+    }
+  };
+  
+  const handleTaxReturnInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setTaxReturnFile(e.target.files[0]);
+      toast({
+        title: "Fichier téléchargé",
+        description: `Déclaration d'impôts: ${e.target.files[0].name}`,
+        variant: "default",
+      });
+    }
+  };
+  
+  const handleAnalyzeDocuments = async () => {
+    if (!payslipFile || !taxReturnFile) {
+      toast({
+        title: "Documents manquants",
+        description: "Veuillez télécharger à la fois une fiche de paie et une déclaration d'impôts",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+    
+    try {
+      const formData = new FormData();
+      formData.append('payslip', payslipFile);
+      formData.append('taxreturn', taxReturnFile);
+      
+      const response = await fetch('http://localhost:3001/api/analyze/complete', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de l\'analyse des documents');
+      }
+      
+      const result = await response.json();
+      setAnalysisResult(result);
+      
+      toast({
+        title: "Analyse terminée",
+        description: "Vos documents ont été analysés avec succès",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast({
+        title: "Erreur d'analyse",
+        description: "Une erreur est survenue lors de l'analyse des documents",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Demo user data for DID profile
@@ -105,6 +227,128 @@ const DIDDocuments = () => {
         icon: FileText
       }
     ]
+  };
+
+  const renderAnalysisResults = () => {
+    if (!analysisResult) return null;
+    
+    const { documentData, loanAnalysis } = analysisResult;
+    
+    if (!documentData || !loanAnalysis) return null;
+    
+    return (
+      <Card className="bg-aave-blue-gray border-aave-accent mt-6">
+        <CardHeader className="pb-2">
+          <CardTitle>Résultats de l'Analyse</CardTitle>
+          <CardDescription className="text-gray-400">
+            Analyse de vos documents financiers et capacité d'emprunt
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Bulletin de Salaire</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Employeur:</span>
+                  <span>{documentData.bulletin.employeur}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Type de contrat:</span>
+                  <span>{documentData.bulletin.typeContrat}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Ancienneté:</span>
+                  <span>{documentData.bulletin.anciennete}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Salaire brut:</span>
+                  <span className="font-semibold">{documentData.bulletin.salaireBrut}€</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Salaire net:</span>
+                  <span className="font-semibold">{documentData.bulletin.salaireNet}€</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Déclaration d'Impôts</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Situation:</span>
+                  <span>{documentData.impots.situationFamiliale.statut}, {documentData.impots.situationFamiliale.nombrePersonnesCharge} personne(s) à charge</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Revenu annuel:</span>
+                  <span className="font-semibold">{documentData.impots.revenuAnnuel}€</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Impôt sur le revenu:</span>
+                  <span>{documentData.impots.impotRevenu}€</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Revenu fiscal de référence:</span>
+                  <span>{documentData.impots.revenuFiscalReference}€</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-aave-accent/10 p-4 rounded-lg border border-aave-accent space-y-4">
+            <h3 className="text-lg font-medium text-aave-accent">Capacité d'Emprunt</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-aave-darker p-4 rounded-lg text-center">
+                <div className="text-gray-400 mb-1">Montant Maximal</div>
+                <div className="text-3xl font-bold text-aave-accent">{loanAnalysis.capaciteEmprunt}€</div>
+              </div>
+              
+              <div className="bg-aave-darker p-4 rounded-lg text-center">
+                <div className="text-gray-400 mb-1">Mensualité</div>
+                <div className="text-3xl font-bold text-aave-primary">{loanAnalysis.mensualiteMax}€</div>
+              </div>
+              
+              <div className="bg-aave-darker p-4 rounded-lg text-center">
+                <div className="text-gray-400 mb-1">Durée Recommandée</div>
+                <div className="text-3xl font-bold text-aave-secondary">{loanAnalysis.dureeRecommandee}</div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <h4 className="font-medium mb-2">Facteurs Favorables</h4>
+                <ul className="space-y-1">
+                  {loanAnalysis.facteursFavorables.map((facteur, index) => (
+                    <li key={index} className="flex items-center text-sm">
+                      <CheckCircle className="h-4 w-4 text-green-400 mr-2" />
+                      <span>{facteur}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Facteurs Défavorables</h4>
+                <ul className="space-y-1">
+                  {loanAnalysis.facteursDefavorables.map((facteur, index) => (
+                    <li key={index} className="flex items-center text-sm">
+                      <AlertCircle className="h-4 w-4 text-red-400 mr-2" />
+                      <span>{facteur}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              <h4 className="font-medium mb-2">Recommandation</h4>
+              <p className="text-sm bg-aave-darker p-3 rounded-lg">{loanAnalysis.recommendation}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -344,178 +588,181 @@ const DIDDocuments = () => {
                     >
                       <div className="flex flex-col items-center text-center">
                         <Upload className="h-12 w-12 text-aave-accent mb-4" />
-                        <h3 className="text-lg font-medium mb-1">Drag and drop files here</h3>
+                        <h3 className="text-lg font-medium mb-1">Glissez et déposez vos documents ici</h3>
                         <p className="text-gray-400 mb-4">
-                          Support for JPG, PNG, PDF (max 10MB)
+                          Support pour PDF (max 10MB)
                         </p>
-                        <Button 
-                          variant="outline" 
-                          className="border-aave-light-blue text-aave-accent hover:bg-aave-accent/10"
-                          onClick={handleFileInput}
-                        >
-                          <Upload className="h-4 w-4 mr-2" /> Select Files
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium">Required Documents</h3>
-                      <div className="space-y-3">
-                        <div className="bg-aave-darker p-4 rounded-lg border border-aave-light-blue">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-aave-accent" />
-                              <h4 className="font-medium">Identification Document</h4>
-                            </div>
-                            <Badge className="bg-yellow-500/20 text-yellow-400">Required</Badge>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">
-                            Government-issued ID, passport, or driver's license
-                          </p>
-                          <Button variant="outline" className="border-aave-accent text-aave-accent">
-                            <Upload className="h-4 w-4 mr-2" /> Upload ID
-                          </Button>
-                        </div>
-                        
-                        <div className="bg-aave-darker p-4 rounded-lg border border-aave-light-blue">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-aave-accent" />
-                              <h4 className="font-medium">Proof of Income</h4>
-                            </div>
-                            <Badge className="bg-yellow-500/20 text-yellow-400">Required</Badge>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">
-                            Pay stub, employment verification, or tax return
-                          </p>
-                          <Button variant="outline" className="border-aave-accent text-aave-accent">
-                            <Upload className="h-4 w-4 mr-2" /> Upload Proof
-                          </Button>
-                        </div>
-                        
-                        <div className="bg-aave-darker p-4 rounded-lg border border-aave-light-blue">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-aave-accent" />
-                              <h4 className="font-medium">Bank Statement</h4>
-                            </div>
-                            <Badge className="bg-yellow-500/20 text-yellow-400">Required</Badge>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">
-                            Last 3 months of bank statements showing transaction history
-                          </p>
-                          <Button variant="outline" className="border-aave-accent text-aave-accent">
-                            <Upload className="h-4 w-4 mr-2" /> Upload Statement
-                          </Button>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          <input 
+                            type="file" 
+                            accept=".pdf" 
+                            id="payslip-upload" 
+                            className="hidden" 
+                            onChange={handlePayslipInput}
+                          />
+                          <label 
+                            htmlFor="payslip-upload"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-aave-light-blue bg-background hover:bg-aave-accent/10 h-10 px-4 py-2 text-aave-accent cursor-pointer"
+                          >
+                            <Upload className="h-4 w-4 mr-2" /> Fiche de paie
+                          </label>
+                          
+                          <input 
+                            type="file" 
+                            accept=".pdf" 
+                            id="tax-return-upload" 
+                            className="hidden" 
+                            onChange={handleTaxReturnInput}
+                          />
+                          <label 
+                            htmlFor="tax-return-upload"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-aave-light-blue bg-background hover:bg-aave-accent/10 h-10 px-4 py-2 text-aave-accent cursor-pointer"
+                          >
+                            <Upload className="h-4 w-4 mr-2" /> Déclaration d'impôts
+                          </label>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-medium">Optional Documents</h3>
-                      <p className="text-sm text-gray-400">
-                        These documents can significantly improve your credit score and loan eligibility
-                      </p>
+                    <div className="flex flex-col sm:flex-row gap-4 items-center">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-aave-accent"></div>
+                          <span className="text-sm">Fiche de paie</span>
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {payslipFile ? payslipFile.name : "Aucun fichier sélectionné"}
+                        </div>
+                      </div>
                       
-                      <div className="space-y-3">
-                        <div className="bg-aave-darker p-4 rounded-lg border border-aave-light-blue">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-aave-accent" />
-                              <h4 className="font-medium">Utility Bill</h4>
-                            </div>
-                            <Badge className="bg-aave-accent/20 text-aave-accent">Optional</Badge>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">
-                            Recent utility bill for address verification
-                          </p>
-                          <Button variant="outline" className="border-aave-light-blue text-white">
-                            <Upload className="h-4 w-4 mr-2" /> Upload Bill
-                          </Button>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-aave-primary"></div>
+                          <span className="text-sm">Déclaration d'impôts</span>
                         </div>
-                        
-                        <div className="bg-aave-darker p-4 rounded-lg border border-aave-light-blue">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                              <FileText className="h-5 w-5 mr-2 text-aave-accent" />
-                              <h4 className="font-medium">Tax Return</h4>
-                            </div>
-                            <Badge className="bg-aave-accent/20 text-aave-accent">Optional</Badge>
-                          </div>
-                          <p className="text-sm text-gray-400 mb-3">
-                            Most recent tax return document
-                          </p>
-                          <Button variant="outline" className="border-aave-light-blue text-white">
-                            <Upload className="h-4 w-4 mr-2" /> Upload Tax Return
-                          </Button>
+                        <div className="text-xs text-gray-400 truncate">
+                          {taxReturnFile ? taxReturnFile.name : "Aucun fichier sélectionné"}
                         </div>
                       </div>
+                      
+                      <Button 
+                        className="aave-button-gradient"
+                        disabled={!payslipFile || !taxReturnFile || isAnalyzing}
+                        onClick={handleAnalyzeDocuments}
+                      >
+                        {isAnalyzing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Analyse en cours...
+                          </>
+                        ) : (
+                          <>
+                            Analyser les documents <ArrowRight className="ml-2 h-4 w-4" />
+                          </>
+                        )}
+                      </Button>
                     </div>
+                    
+                    {renderAnalysisResults()}
                   </CardContent>
                 </Card>
 
                 <div className="space-y-6">
                   <Card className="bg-aave-blue-gray border-aave-light-blue">
                     <CardHeader className="pb-2">
-                      <CardTitle>Verification Status</CardTitle>
+                      <CardTitle>Statut des Documents</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-6">
                         <div className="flex items-center justify-center">
                           <div className="h-24 w-24 rounded-full bg-aave-accent/20 flex items-center justify-center">
-                            <AlertCircle className="h-10 w-10 text-aave-accent" />
+                            {isAnalyzing ? (
+                              <Loader2 className="h-10 w-10 text-aave-accent animate-spin" />
+                            ) : analysisResult ? (
+                              <CheckCircle className="h-10 w-10 text-green-400" />
+                            ) : (
+                              <AlertCircle className="h-10 w-10 text-aave-accent" />
+                            )}
                           </div>
                         </div>
                         
                         <div className="text-center">
-                          <h3 className="text-lg font-medium mb-1">Verification Pending</h3>
+                          <h3 className="text-lg font-medium mb-1">
+                            {isAnalyzing ? "Analyse en cours" : 
+                             analysisResult ? "Documents vérifiés" : "Vérification en attente"}
+                          </h3>
                           <p className="text-sm text-gray-400">
-                            Your documents need to be uploaded and verified
+                            {isAnalyzing ? "Vos documents sont en cours d'analyse..." :
+                             analysisResult ? "Vos documents ont été analysés avec succès" : 
+                             "Veuillez télécharger vos documents pour l'analyse"}
                           </p>
                         </div>
                         
                         <div className="space-y-2">
-                          <div className="text-xs text-gray-400 mb-1">Verification Progress</div>
+                          <div className="text-xs text-gray-400 mb-1">Statut de vérification</div>
                           <CustomProgress 
-                            value={15} 
+                            value={analysisResult ? 100 : payslipFile && taxReturnFile ? 30 : payslipFile || taxReturnFile ? 15 : 0} 
                             className="h-2 bg-aave-light-blue/30" 
                             indicatorClassName="bg-gradient-to-r from-aave-primary to-aave-secondary" 
                           />
                           <div className="flex justify-between mt-1 text-xs text-gray-400">
-                            <span>Not Started</span>
-                            <span>In Progress</span>
-                            <span>Complete</span>
+                            <span>Non commencé</span>
+                            <span>En cours</span>
+                            <span>Terminé</span>
                           </div>
                         </div>
                         
                         <div className="space-y-3">
                           <div className="flex items-center">
-                            <div className="h-6 w-6 rounded-full bg-gray-600/30 flex items-center justify-center mr-3">
-                              <XCircle className="h-4 w-4 text-gray-400" />
+                            <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-3 ${
+                              payslipFile ? "bg-green-500/30" : "bg-gray-600/30"
+                            }`}>
+                              {payslipFile ? (
+                                <Check className="h-4 w-4 text-green-400" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400" />
+                              )}
                             </div>
                             <div>
-                              <div className="text-sm">Identity Document</div>
-                              <div className="text-xs text-gray-400">Not uploaded</div>
+                              <div className="text-sm">Fiche de paie</div>
+                              <div className="text-xs text-gray-400">
+                                {payslipFile ? "Téléchargé" : "Non téléchargé"}
+                              </div>
                             </div>
                           </div>
                           
                           <div className="flex items-center">
-                            <div className="h-6 w-6 rounded-full bg-gray-600/30 flex items-center justify-center mr-3">
-                              <XCircle className="h-4 w-4 text-gray-400" />
+                            <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-3 ${
+                              taxReturnFile ? "bg-green-500/30" : "bg-gray-600/30"
+                            }`}>
+                              {taxReturnFile ? (
+                                <Check className="h-4 w-4 text-green-400" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400" />
+                              )}
                             </div>
                             <div>
-                              <div className="text-sm">Proof of Income</div>
-                              <div className="text-xs text-gray-400">Not uploaded</div>
+                              <div className="text-sm">Déclaration d'impôts</div>
+                              <div className="text-xs text-gray-400">
+                                {taxReturnFile ? "Téléchargé" : "Non téléchargé"}
+                              </div>
                             </div>
                           </div>
                           
                           <div className="flex items-center">
-                            <div className="h-6 w-6 rounded-full bg-gray-600/30 flex items-center justify-center mr-3">
-                              <XCircle className="h-4 w-4 text-gray-400" />
+                            <div className={`h-6 w-6 rounded-full flex items-center justify-center mr-3 ${
+                              analysisResult ? "bg-green-500/30" : "bg-gray-600/30"
+                            }`}>
+                              {analysisResult ? (
+                                <Check className="h-4 w-4 text-green-400" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-gray-400" />
+                              )}
                             </div>
                             <div>
-                              <div className="text-sm">Bank Statement</div>
-                              <div className="text-xs text-gray-400">Not uploaded</div>
+                              <div className="text-sm">Analyse financière</div>
+                              <div className="text-xs text-gray-400">
+                                {analysisResult ? "Terminée" : "En attente"}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -525,7 +772,7 @@ const DIDDocuments = () => {
                   
                   <Card className="bg-aave-blue-gray border-aave-light-blue">
                     <CardHeader className="pb-2">
-                      <CardTitle>DID Benefits</CardTitle>
+                      <CardTitle>Avantages de Vérification</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4">
                       <div className="space-y-4">
@@ -534,8 +781,8 @@ const DIDDocuments = () => {
                             <Check className="h-5 w-5 text-aave-accent" />
                           </div>
                           <div>
-                            <div className="font-medium">Higher Loan Limits</div>
-                            <div className="text-sm text-gray-400">Up to 100,000 USD</div>
+                            <div className="font-medium">Limites d'emprunt plus élevées</div>
+                            <div className="text-sm text-gray-400">Jusqu'à 100,000 USD</div>
                           </div>
                         </div>
                         
@@ -544,8 +791,8 @@ const DIDDocuments = () => {
                             <Check className="h-5 w-5 text-aave-accent" />
                           </div>
                           <div>
-                            <div className="font-medium">Lower Interest Rates</div>
-                            <div className="text-sm text-gray-400">Up to 3% reduction</div>
+                            <div className="font-medium">Taux d'intérêt plus bas</div>
+                            <div className="text-sm text-gray-400">Jusqu'à 3% de réduction</div>
                           </div>
                         </div>
                         
@@ -554,8 +801,8 @@ const DIDDocuments = () => {
                             <Check className="h-5 w-5 text-aave-accent" />
                           </div>
                           <div>
-                            <div className="font-medium">Reduced Collateral</div>
-                            <div className="text-sm text-gray-400">Lower LTV requirements</div>
+                            <div className="font-medium">Collatéral réduit</div>
+                            <div className="text-sm text-gray-400">Exigences LTV plus basses</div>
                           </div>
                         </div>
                         
@@ -564,8 +811,8 @@ const DIDDocuments = () => {
                             <Check className="h-5 w-5 text-aave-accent" />
                           </div>
                           <div>
-                            <div className="font-medium">Portable Identity</div>
-                            <div className="text-sm text-gray-400">Use across multiple DeFi platforms</div>
+                            <div className="font-medium">Identité portable</div>
+                            <div className="text-sm text-gray-400">Utilisable sur plusieurs plateformes DeFi</div>
                           </div>
                         </div>
                       </div>
