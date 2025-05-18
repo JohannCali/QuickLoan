@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Wallet, Bell, ChevronDown } from "lucide-react";
@@ -11,14 +10,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  title?: string;
+  subtitle?: string;
+}
+
+const Header: React.FC<HeaderProps> = ({ title, subtitle }) => {
   return (
     <header className="border-b border-aave-light-blue bg-aave-dark py-3 px-6 flex items-center justify-between font-inter">
-      <div className="flex items-center space-x-4">
-        <h1 className="text-lg font-medium">QuickLoan AI Credit Protocol</h1>
-        <div className="bg-aave-light-blue/20 text-xs font-medium text-aave-primary px-3 py-1 rounded-full">
-          Ethereum Mainnet
-        </div>
+      <div className="flex flex-col">
+        <h1 className="text-lg font-medium">
+          {title || "QuickLoan AI Credit Protocol"}
+        </h1>
+        {subtitle && (
+          <p className="text-sm text-gray-400 mt-1">{subtitle}</p>
+        )}
       </div>
 
       <div className="flex items-center space-x-3">

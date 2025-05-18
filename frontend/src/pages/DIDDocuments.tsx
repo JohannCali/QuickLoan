@@ -150,9 +150,9 @@ const DIDDocuments = () => {
     try {
       const formData = new FormData();
       formData.append('payslip', payslipFile);
-      formData.append('taxreturn', taxReturnFile);
+      formData.append('taxReturn', taxReturnFile);
       
-      const response = await fetch('http://localhost:3001/api/analyze/complete', {
+      const response = await fetch('http://localhost:3001/api/analyze-documents', {
         method: 'POST',
         body: formData,
       });
@@ -162,7 +162,17 @@ const DIDDocuments = () => {
       }
       
       const result = await response.json();
-      setAnalysisResult(result);
+      if (result.success && result.data) {
+        setAnalysisResult({
+          documentData: {
+            bulletin: result.data.payslip,
+            impots: result.data.taxReturn
+          },
+          loanAnalysis: result.data.loanAnalysis
+        });
+      } else {
+        throw new Error('Format de réponse incorrect');
+      }
       
       toast({
         title: "Analyse terminée",
@@ -173,7 +183,7 @@ const DIDDocuments = () => {
       console.error('Erreur:', error);
       toast({
         title: "Erreur d'analyse",
-        description: "Une erreur est survenue lors de l'analyse des documents",
+        description: "Une erreur est survenue lors de l'analyse des documents: " + (error instanceof Error ? error.message : String(error)),
         variant: "destructive",
       });
     } finally {
